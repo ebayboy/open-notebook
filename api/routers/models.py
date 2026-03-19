@@ -29,6 +29,11 @@ def _check_openai_compatible_support(mode: str) -> bool:
     """
     generic = os.environ.get("OPENAI_COMPATIBLE_BASE_URL") is not None
     specific = os.environ.get(f"OPENAI_COMPATIBLE_BASE_URL_{mode}") is not None
+
+    logger.info(
+        f"Checking OpenAI-compatible support mode: {mode} - Generic: {generic}, Specific: {specific}"
+    )
+
     return generic or specific
 
 
@@ -270,6 +275,13 @@ async def get_provider_availability():
 
         available_providers = [k for k, v in provider_status.items() if v]
         unavailable_providers = [k for k, v in provider_status.items() if not v]
+
+        logger.info(f"==== available_providers: {available_providers}")
+        logger.info(f"==== unavailable_providers:{unavailable_providers}")
+        # 打印 provider_status[openai-compatible"]
+        logger.info(
+            f"==== provider_status[openai-compatible]: {provider_status['openai-compatible']}"
+        )
 
         # Get supported model types from Esperanto
         esperanto_available = AIFactory.get_available_providers()
