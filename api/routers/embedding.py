@@ -81,6 +81,32 @@ async def embed_content(embed_request: EmbedRequest):
                 if not source_item:
                     raise HTTPException(status_code=404, detail="Source not found")
 
+                # Check if source has content before attempting to vectorize
+                if not source_item.full_text or not source_item.full_text.strip():
+                    error_detail = f"Source {item_id} cannot be embedded because it contains no text content"
+                    if source_item.full_text is None:
+                        error_detail += " (full_text field is None)"
+                    elif not source_item.full_text.strip():
+                        error_detail += (
+                            " (full_text field is empty or contains only whitespace)"
+                        )
+
+                    # Check if source is still processing
+                    if source_item.command:
+                        try:
+                            status = await source_item.get_status()
+                            if status in ["queued", "running"]:
+                                error_detail += ". Source is still being processed, please wait for completion."
+                            elif status == "failed":
+                                error_detail += ". Source processing failed, try retrying the source processing."
+                            elif status == "completed":
+                                error_detail += ". Source processing completed but no text was extracted."
+                        except Exception:
+                            pass
+
+                    logger.warning(error_detail)
+                    raise HTTPException(status_code=400, detail=error_detail)
+
                 # Submit embed_source job (returns command_id for tracking)
                 command_id = await source_item.vectorize()
                 message = "Source embedding job submitted"
@@ -89,6 +115,19 @@ async def embed_content(embed_request: EmbedRequest):
                 note_item = await Note.get(item_id)
                 if not note_item:
                     raise HTTPException(status_code=404, detail="Note not found")
+
+                # Check if note has content before attempting to embed
+                if not note_item.content or not note_item.content.strip():
+                    error_detail = f"Note {item_id} cannot be embedded because it contains no text content"
+                    if note_item.content is None:
+                        error_detail += " (content field is None)"
+                    elif not note_item.content.strip():
+                        error_detail += (
+                            " (content field is empty or contains only whitespace)"
+                        )
+
+                    logger.warning(error_detail)
+                    raise HTTPException(status_code=400, detail=error_detail)
 
                 # Note.save() internally submits embed_note command and returns command_id
                 command_id = await note_item.save()

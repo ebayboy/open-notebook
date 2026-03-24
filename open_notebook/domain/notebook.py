@@ -297,6 +297,17 @@ class Source(ObjectModel):
         default=None, description="Link to surreal-commands processing job"
     )
 
+    @field_validator("full_text")
+    @classmethod
+    def validate_full_text_for_vectorization(cls, v, info):
+        """Validate that full_text is not empty if the source needs to be vectorized"""
+        # This is a soft validation - we allow empty text but log a warning
+        if v is not None and not v.strip():
+            logger.warning(
+                f"Source {info.data.get('id', 'unknown')} has empty full_text content"
+            )
+        return v
+
     @field_validator("command", mode="before")
     @classmethod
     def parse_command(cls, value):
@@ -429,8 +440,19 @@ class Source(ObjectModel):
         logger.info(f"Submitting embed_source job for source {self.id}")
 
         try:
-            if not self.full_text:
-                raise ValueError(f"Source {self.id} has no text to vectorize")
+            if not self.full_text or not self.full_text.strip():
+                # Provide more detailed error information
+                error_msg = f"Source {self.id} has no text to vectorize"
+                if self.full_text is None:
+                    error_msg += " (full_text is None)"
+                elif not self.full_text.strip():
+                    error_msg += " (full_text is empty or whitespace only)"
+
+                # Log additional context for debugging
+                logger.error(
+                    f"{error_msg}. Source title: {self.title}, asset: {self.asset}"
+                )
+                raise ValueError(error_msg)
 
             # Submit the embed_source command
             command_id = submit_command(
@@ -448,9 +470,7 @@ class Source(ObjectModel):
             return command_id_str
 
         except Exception as e:
-            logger.error(
-                f"Failed to submit embed_source job for source {self.id}: {e}"
-            )
+            logger.error(f"Failed to submit embed_source job for source {self.id}: {e}")
             logger.exception(e)
             raise DatabaseOperationError(e)
 

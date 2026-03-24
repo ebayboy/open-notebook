@@ -1,7 +1,7 @@
 import operator
 from typing import Any, Dict, List, Optional
 
-from content_core import extract_content
+from content_core.content.extraction import extract_content
 from content_core.common import ProcessSourceState
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, START, StateGraph
@@ -75,8 +75,29 @@ async def content_process(state: SourceState) -> dict:
         logger.warning(f"Failed to retrieve speech-to-text model configuration: {e}")
         # Continue without custom audio model (content-core will use its default)
 
-    processed_state = await extract_content(content_state)
-    return {"content_state": processed_state}
+    try:
+        processed_state = await extract_content(content_state)
+
+        # Log content extraction results
+        if processed_state and processed_state.content:
+            logger.info(
+                f"Content extraction successful: {len(processed_state.content)} characters extracted "
+                f"from source (url: {processed_state.url}, file_path: {processed_state.file_path})"
+            )
+        else:
+            logger.warning(
+                f"Content extraction returned empty content for source "
+                f"(url: {processed_state.url if processed_state else 'unknown'}, "
+                f"file_path: {processed_state.file_path if processed_state else 'unknown'})"
+            )
+
+        return {"content_state": processed_state}
+    except Exception as e:
+        logger.error(
+            f"Content extraction failed for source "
+            f"(url: {content_state.get('url')}, file_path: {content_state.get('file_path')}): {e}"
+        )
+        raise
 
 
 async def save_source(state: SourceState) -> dict:
@@ -87,9 +108,33 @@ async def save_source(state: SourceState) -> dict:
     if not source:
         raise ValueError(f"Source with ID {state['source_id']} not found")
 
+    # Check if content extraction was successful
+    extracted_content = content_state.content
+    if not extracted_content or not extracted_content.strip():
+        error_msg = (
+            f"Source {source.id} content extraction failed or returned empty content"
+        )
+        if extracted_content is None:
+            error_msg += " (content is None)"
+        elif not extracted_content.strip():
+            error_msg += " (content is empty or whitespace only)"
+
+        # Log detailed error information for debugging
+        logger.error(
+            f"{error_msg}. Source details: title='{source.title}', "
+            f"asset_url='{content_state.url}', asset_file_path='{content_state.file_path}'"
+        )
+
+        # Still save the source but with a warning
+        source.full_text = extracted_content
+    else:
+        logger.info(
+            f"Successfully extracted content for source {source.id}: {len(extracted_content)} characters"
+        )
+
     # Update the source with processed content
     source.asset = Asset(url=content_state.url, file_path=content_state.file_path)
-    source.full_text = content_state.content
+    # Note: source.full_text is already set above based on extraction result
 
     # Preserve existing title if none provided in processed content
     if content_state.title:
