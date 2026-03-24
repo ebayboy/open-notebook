@@ -1,0 +1,22 @@
+完整覆盖攻击链过程全过程
+通过MITRE ATT&CK攻击模型覆盖、攻击链分析，帮助客户快速精准的定位安全事件，提升威胁检测效率，缓解告警疲劳。为用户提供基于Att&ck攻击模型分析提炼出来的安全事件的攻击链详情列表，通过攻击模型分析有效发现，隐藏在正常访问行为中的异常攻击行为。
+
+2026-03-24 17:19:49 | INFO     | logging:callHandlers:1762 - 127.0.0.1:62842 - "GET /api/sources?limit=30&offset=0&sort_by=updated&sort_order=desc HTTP/1.1" 200
+2026-03-24 17:19:49 | DEBUG    | open_notebook.database.repository:repo_query:71 - repo_query: 
+                SELECT id, asset, created, title, updated, topics, command,
+                (SELECT VALUE count() FROM source_insight WHERE source = $parent.id GROUP ALL)[0].count OR 0 AS insights_count,
+                (SELECT VALUE id FROM source_embedding WHERE source = $parent.id LIMIT 1) != [] AS embedded
+                FROM source
+                ORDER BY updated DESC
+                LIMIT $limit START $offset
+                FETCH command
+            
+2026-03-24 17:19:49 | DEBUG    | open_notebook.database.repository:repo_query:79 - repo_query: query_str:
+                SELECT id, asset, created, title, updated, topics, command,
+                (SELECT VALUE count() FROM source_insight WHERE source = $parent.id GROUP ALL)[0].count OR 0 AS insights_count,
+                (SELECT VALUE id FROM source_embedding WHERE source = $parent.id LIMIT 1) != [] AS embedded
+                FROM source
+                ORDER BY updated DESC
+                LIMIT $limit START $offset
+                FETCH command
+             result:[{'asset': None, 'command': {'app': 'open_notebook', 'args': {'content_state': {'content': '完整覆盖攻击链过程全过程\r\n通过MITRE ATT&CK攻击模型覆盖、攻击链分析，帮助客户快速精准的定位安全事件，提升威胁检测效率，缓解告警疲劳。为用户提供基于Att&ck攻击模型分析提炼出来的安全事件的攻击链详情列表，通过攻击模型分析有效发现，隐藏在正常访问行为中的异常攻击行为。'}, 'embed': True, 'notebook_ids': [], 'source_id': 'source:9si3f67ww00j2zq52uhe', 'transformations': ['transformation:v35ln2sv447fq9wvu7i0']}, 'context': {}, 'id': 'command:91zt85lel7txjbvmp9tv', 'name': 'process_source', 'status': 'new'}, 'created': datetime.datetime(2026, 3, 24, 8, 59, 48, 803459, tzinfo=datetime.timezone.utc), 'embedded': False, 'id': 'source:9si3f67ww00j2zq52uhe', 'insights_count': 0, 'title': 'sec2', 'topics': [], 'updated': datetime.datetime(2026, 3, 24, 8, 59, 48, 935259, tzinfo=datetime.timezone.utc)}]
