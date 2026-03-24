@@ -3,6 +3,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+import os
+import logging
+import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -10,6 +13,49 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from loguru import logger
 from starlette.exceptions import HTTPException as StarletteHTTPException
+
+
+# Configure standard library logging to work with loguru
+class InterceptHandler(logging.Handler):
+    def __init__(self):
+        super().__init__()
+        # 定义需要过滤的日志记录器名称
+        self.filtered_loggers = {
+            "logging",  # 避免日志系统自身的递归
+            "urllib3",  # 过滤过于详细的HTTP客户端日志
+            "charset_normalizer",  # 过滤字符集检测日志
+            "websockets",  # 过滤WebSocket详细连接日志
+        }
+
+    def emit(self, record):
+        # 跳过日志系统自身的调用
+        if (
+            record.name.startswith("logging")
+            or "callHandlers" in record.funcName
+            or record.name in self.filtered_loggers
+        ):
+            return
+
+        # 跳过特定的重复消息
+        if "= connection is OPEN" in record.getMessage():
+            return
+
+        # Get corresponding Loguru level if it exists
+        try:
+            level = logger.level(record.levelname).name
+        except ValueError:
+            level = record.levelno
+
+        # Find caller from where the logged message originated
+        frame, depth = logging.currentframe(), 2
+        while frame and frame.f_code.co_filename == logging.__file__:
+            frame = frame.f_back
+            depth += 1
+
+        logger.opt(depth=depth, exception=record.exc_info).log(
+            level, record.getMessage()
+        )
+
 
 from api.auth import PasswordAuthMiddleware
 from api.routers import (
@@ -34,6 +80,88 @@ from api.routers import (
 )
 from api.routers import commands as commands_router
 from open_notebook.database.async_migrate import AsyncMigrationManager
+
+
+# Configure loguru logger
+def setup_logging():
+    """Configure logging based on environment variables."""
+    log_level = os.getenv("LOGLEVEL", "INFO").upper()
+    log_file = os.getenv("LOG_FILE", "")
+    log_rotation = os.getenv("LOG_ROTATION", "10 MB")
+    log_retention = os.getenv("LOG_RETENTION", "7 days")
+
+    # Remove default handler
+    logger.remove()
+
+    # Add console handler
+    logger.add(
+        sink=sys.stderr,
+        level=log_level,
+        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+        colorize=True,
+        backtrace=True,
+        diagnose=True,
+        enqueue=True,
+    )
+
+    # Add file handler if LOG_FILE is specified
+    if log_file:
+        logger.add(
+            sink=log_file,
+            level=log_level,
+            format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+            rotation=log_rotation,
+            retention=log_retention,
+            compression="gz",
+            enqueue=True,
+            backtrace=True,
+            diagnose=True,
+        )
+        logger.info(f"Logging to file: {log_file}")
+
+    # Configure standard library logging interception
+    logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)
+
+    # Configure specific loggers for better coverage
+    important_loggers = [
+        "uvicorn",
+        "uvicorn.error",
+        "uvicorn.access",
+        "fastapi",
+        "surrealdb",
+        "open_notebook",
+        "esperanto",
+        "content_core",
+        "podcast_creator",
+        "langchain",
+    ]
+
+    # 设置重要logger的级别
+    for logger_name in important_loggers:
+        logging_logger = logging.getLogger(logger_name)
+        logging_logger.handlers = [InterceptHandler()]
+        logging_logger.setLevel(getattr(logging, log_level, logging.INFO))
+        logging_logger.propagate = False
+
+    # 设置一些嘈杂logger的级别为WARNING或更高
+    noisy_loggers = [
+        "httpx",
+        "httpcore",
+        "asyncio",
+        "websockets",
+        "urllib3",
+        "charset_normalizer",
+    ]
+
+    for logger_name in noisy_loggers:
+        logging_logger = logging.getLogger(logger_name)
+        logging_logger.handlers = [InterceptHandler()]
+        logging_logger.setLevel(logging.WARNING)  # 只记录WARNING及以上级别
+        logging_logger.propagate = False
+
+
+# Setup logging
+setup_logging()
 
 # Import commands to register them in the API process
 try:
@@ -132,7 +260,8 @@ async def custom_http_exception_handler(request: Request, exc: StarletteHTTPExce
         status_code=exc.status_code,
         content={"detail": exc.detail},
         headers={
-            **(exc.headers or {}), "Access-Control-Allow-Origin": origin,
+            **(exc.headers or {}),
+            "Access-Control-Allow-Origin": origin,
             "Access-Control-Allow-Credentials": "true",
             "Access-Control-Allow-Methods": "*",
             "Access-Control-Allow-Headers": "*",
