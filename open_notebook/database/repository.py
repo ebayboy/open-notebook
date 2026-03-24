@@ -15,10 +15,10 @@ def get_database_url():
     if surreal_url:
         return surreal_url
 
-    # Fallback to old format - WebSocket URL format
+    # Fallback to HTTP URL format
     address = os.getenv("SURREAL_ADDRESS", "localhost")
     port = os.getenv("SURREAL_PORT", "8000")
-    return f"ws://{address}/rpc:{port}"
+    return f"http://{address}:{port}"
 
 
 def get_database_password():
@@ -49,12 +49,13 @@ async def db_connection():
     db = AsyncSurreal(get_database_url())
     await db.signin(
         {
-            "username": os.environ.get("SURREAL_USER"),
-            "password": get_database_password(),
+            "username": os.environ.get("SURREAL_USER", "root"),
+            "password": get_database_password() or "root",
         }
     )
     await db.use(
-        os.environ.get("SURREAL_NAMESPACE"), os.environ.get("SURREAL_DATABASE")
+        os.environ.get("SURREAL_NAMESPACE", "open_notebook"),
+        os.environ.get("SURREAL_DATABASE", "open_notebook"),
     )
     try:
         yield db
@@ -67,7 +68,7 @@ async def repo_query(
 ) -> List[Dict[str, Any]]:
     """Execute a SurrealQL query and return the results"""
 
-    logger.debug(f"repo_query: {query_str}, with vars: {vars}")
+    logger.debug(f"repo_query: {query_str}")
 
     async with db_connection() as connection:
         try:
