@@ -67,15 +67,19 @@ async def repo_query(
 ) -> List[Dict[str, Any]]:
     """Execute a SurrealQL query and return the results"""
 
+    logger.debug(f"repo_query: {query_str}, with vars: {vars}")
+
     async with db_connection() as connection:
         try:
             result = parse_record_ids(await connection.query(query_str, vars))
             if isinstance(result, str):
+                logger.error(f"Query failed: {result}")
                 raise RuntimeError(result)
+            logger.debug(f"repo_query: query_str:{query_str} result:{result}")
             return result
         except RuntimeError as e:
             # RuntimeError is raised for retriable transaction conflicts - log at debug to avoid noise
-            logger.debug(str(e))
+            logger.error(str(e))
             raise
         except Exception as e:
             logger.exception(e)

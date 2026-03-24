@@ -132,6 +132,9 @@ class APIClient:
             "search_notes": search_notes,
             "minimum_score": minimum_score,
         }
+
+        logger.debug(f"search query: {query}, data: {data}")
+
         return self._make_request("POST", "/api/search", json=data)
 
     def ask_simple(
@@ -148,6 +151,9 @@ class APIClient:
             "answer_model": answer_model,
             "final_answer_model": final_answer_model,
         }
+
+        logger.debug(f"ask_simple question: {question}, data: {data}")
+
         # Use configured timeout for long-running ask operations
         return self._make_request(
             "POST", "/api/search/ask/simple", json=data, timeout=self.timeout

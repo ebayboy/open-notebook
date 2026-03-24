@@ -107,6 +107,11 @@ async def generate_embeddings(
 
     model_name = getattr(embedding_model, "model_name", "unknown")
 
+    # 打印embedding_model信息， 包括base_url ,model_name等
+    logger.debug(
+        f"Using model Embedding model info: {embedding_model} model_name:{model_name}"
+    )
+
     # Log text sizes for debugging
     text_sizes = [len(t) for t in texts]
     logger.debug(
@@ -114,11 +119,17 @@ async def generate_embeddings(
         f"(sizes: min={min(text_sizes)}, max={max(text_sizes)}, "
         f"total={sum(text_sizes)} chars)"
     )
+    # 打印所有texts
+    logger.debug(f"All texts: {texts}")
 
     try:
         # Single API call for all texts
         embeddings = await embedding_model.aembed(texts)
         logger.debug(f"Generated {len(embeddings)} embeddings")
+
+        # 打印texts和embeddings
+        logger.debug(f"Texts and embeddings: {len(list(zip(texts, embeddings)))}")
+
         return embeddings
     except Exception as e:
         # Log at debug level - the calling command will log at appropriate level

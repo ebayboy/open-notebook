@@ -679,6 +679,9 @@ async def vector_search(
 
         # Use unified embedding function (handles chunking if query is very long)
         embed = await generate_embedding(keyword)
+        logger.debug(
+            f"vector_search: keyword: {keyword} source:{source} note:{note} minimum_score:{minimum_score}"
+        )
         search_results = await repo_query(
             """
             SELECT * FROM fn::vector_search($embed, $results, $source, $note, $minimum_score);
