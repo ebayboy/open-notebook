@@ -364,6 +364,7 @@ class APIClient:
     # Sources API methods
     def get_sources(self, notebook_id: Optional[str] = None) -> List[Dict[Any, Any]]:
         """Get all sources with optional notebook filtering."""
+        logger.debug("Getting sources for notebook {notebook_id}")
         params = {}
         if notebook_id:
             params["notebook_id"] = notebook_id
@@ -385,12 +386,15 @@ class APIClient:
         async_processing: bool = False,
     ) -> Union[Dict[Any, Any], List[Dict[Any, Any]]]:
         """Create a new source."""
+
         data = {
             "type": source_type,
             "embed": embed,
             "delete_source": delete_source,
             "async_processing": async_processing,
         }
+
+        logger.debug(f"Creating {source_type} source with data: {data}")
 
         # Handle backward compatibility for notebook_id vs notebooks
         if notebooks:
@@ -418,30 +422,39 @@ class APIClient:
 
     def get_source(self, source_id: str) -> Union[Dict[Any, Any], List[Dict[Any, Any]]]:
         """Get a specific source."""
+        logger.debug(f"Getting source {source_id}")
         return self._make_request("GET", f"/api/sources/{source_id}")
 
     def get_source_status(
         self, source_id: str
     ) -> Union[Dict[Any, Any], List[Dict[Any, Any]]]:
         """Get processing status for a source."""
+
+        logger.debug(f"Getting status for source {source_id}")
         return self._make_request("GET", f"/api/sources/{source_id}/status")
 
     def update_source(
         self, source_id: str, **updates
     ) -> Union[Dict[Any, Any], List[Dict[Any, Any]]]:
         """Update a source."""
+
+        logger.debug(f"Updating source {source_id} with updates: {updates}")
         return self._make_request("PUT", f"/api/sources/{source_id}", json=updates)
 
     def delete_source(
         self, source_id: str
     ) -> Union[Dict[Any, Any], List[Dict[Any, Any]]]:
         """Delete a source."""
+
+        logger.debug(f"Deleting source {source_id}")
         return self._make_request("DELETE", f"/api/sources/{source_id}")
 
     # Insights API methods
     def get_source_insights(self, source_id: str) -> List[Dict[Any, Any]]:
         """Get all insights for a specific source."""
         result = self._make_request("GET", f"/api/sources/{source_id}/insights")
+
+        logger.debug(f"Retrieved {len(result)} insights for source {source_id}")
         return result if isinstance(result, list) else [result]
 
     def get_insight(
@@ -474,6 +487,8 @@ class APIClient:
         data = {"transformation_id": transformation_id}
         if model_id:
             data["model_id"] = model_id
+
+        logger.debug(f"Creating insight for source {source_id} with data: {data}")
         return self._make_request(
             "POST", f"/api/sources/{source_id}/insights", json=data
         )

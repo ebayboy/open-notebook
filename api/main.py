@@ -34,6 +34,7 @@ class InterceptHandler(logging.Handler):
             record.name.startswith("logging")
             or "callHandlers" in record.funcName
             or record.name in self.filtered_loggers
+            or record.name == "logging"
         ):
             return
 
