@@ -28,11 +28,13 @@ class CreateSourceChatSessionRequest(BaseModel):
         None, description="Optional model override for this session"
     )
 
+
 class UpdateSourceChatSessionRequest(BaseModel):
     title: Optional[str] = Field(None, description="New session title")
     model_override: Optional[str] = Field(
         None, description="Model override for this session"
     )
+
 
 class ChatMessage(BaseModel):
     id: str = Field(..., description="Message ID")
@@ -52,6 +54,7 @@ class ContextIndicator(BaseModel):
         default_factory=list, description="Note IDs used in context"
     )
 
+
 class SourceChatSessionResponse(BaseModel):
     id: str = Field(..., description="Session ID")
     title: str = Field(..., description="Session title")
@@ -65,6 +68,7 @@ class SourceChatSessionResponse(BaseModel):
         None, description="Number of messages in session"
     )
 
+
 class SourceChatSessionWithMessagesResponse(SourceChatSessionResponse):
     messages: List[ChatMessage] = Field(
         default_factory=list, description="Session messages"
@@ -73,11 +77,13 @@ class SourceChatSessionWithMessagesResponse(SourceChatSessionResponse):
         None, description="Context indicators from last response"
     )
 
+
 class SendMessageRequest(BaseModel):
     message: str = Field(..., description="User message content")
     model_override: Optional[str] = Field(
         None, description="Optional model override for this message"
     )
+
 
 class SuccessResponse(BaseModel):
     success: bool = Field(True, description="Operation success status")
@@ -231,8 +237,12 @@ async def get_source_chat_session(
             )
 
         # Get session state from LangGraph to retrieve messages
-        thread_state = await source_chat_graph.aget_state(
-            config=RunnableConfig(configurable={"thread_id": full_session_id})
+        # Use sync get_state in thread since SqliteSaver doesn't support async
+        import asyncio
+
+        thread_state = await asyncio.to_thread(
+            source_chat_graph.get_state,
+            config=RunnableConfig(configurable={"thread_id": full_session_id}),
         )
 
         # Extract messages from state
@@ -247,9 +257,9 @@ async def get_source_chat_session(
                         ChatMessage(
                             id=getattr(msg, "id", f"msg_{len(messages)}"),
                             type=msg.type if hasattr(msg, "type") else "unknown",
-                            content=msg.content
-                            if hasattr(msg, "content")
-                            else str(msg),
+                            content=(
+                                msg.content if hasattr(msg, "content") else str(msg)
+                            ),
                             timestamp=None,  # LangChain messages don't have timestamps by default
                         )
                     )
@@ -416,8 +426,12 @@ async def stream_source_chat_response(
     """Stream the source chat response as Server-Sent Events."""
     try:
         # Get current state
-        current_state = await source_chat_graph.aget_state(
-            config=RunnableConfig(configurable={"thread_id": session_id})
+        # Use sync get_state in thread since SqliteSaver doesn't support async
+        import asyncio
+
+        current_state = await asyncio.to_thread(
+            source_chat_graph.get_state,
+            config=RunnableConfig(configurable={"thread_id": session_id}),
         )
 
         # Prepare state for execution
