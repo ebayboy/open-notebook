@@ -6,6 +6,7 @@ load_dotenv()
 import os
 import logging
 import sys
+import datetime
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -89,6 +90,7 @@ def setup_logging():
     log_file = os.getenv("LOG_FILE", "")
     log_rotation = os.getenv("LOG_ROTATION", "10 MB")
     log_retention = os.getenv("LOG_RETENTION", "7 days")
+    clear_log_on_start = os.getenv("CLEAR_LOG_ON_START", "false").lower() == "true"
 
     # Remove default handler
     logger.remove()
@@ -103,6 +105,16 @@ def setup_logging():
         diagnose=True,
         enqueue=True,
     )
+
+    # 如果启用了启动时清空日志，则在添加文件处理器之前清空
+    if log_file and clear_log_on_start and os.path.exists(log_file):
+        try:
+            current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            with open(log_file, "w", encoding="utf-8") as f:
+                f.write(f"=== 日志文件已清空 - {current_time} ===\n")
+            print(f"已清空日志文件: {log_file}")  # 使用print因为logger还未配置
+        except Exception as e:
+            print(f"清空日志文件失败: {e}")  # 使用print因为logger还未配置
 
     # Add file handler if LOG_FILE is specified
     if log_file:
